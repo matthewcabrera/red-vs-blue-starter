@@ -5,6 +5,7 @@ untrusted text. This script never executes PR code and gives the model only
 read-only project file tools.
 """
 
+import contextlib
 import html
 import json
 import os
@@ -147,7 +148,8 @@ def main():
             findings = candidate if isinstance(candidate, list) else []
             completed = True
             break
-        output = run_tool(action)
+        with contextlib.redirect_stdout(sys.stderr):
+            output = run_tool(action)
         messages.append({"role": "user", "content": "Tool result:\n" + output})
 
     if not completed:
