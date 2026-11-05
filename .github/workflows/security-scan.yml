@@ -17,7 +17,8 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
-      # Only checkout trusted base code. PR changes are fetched as text and never run.
+      # Use trusted code from the PR's base revision. Never check out or run
+      # files supplied by the PR while secrets or a write token are available.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -30,25 +31,27 @@ jobs:
       - name: Install scanner dependencies
         run: python -m pip install --disable-pip-version-check openai python-dotenv requests
 
-      - name: Scan PR diff
+      - name: Scan pull request diff
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai/
-          LLM_MODEL: gemini-3.5-flash-lite
+          LLM_MODEL: gemini-3.1-flash-lite
           PR_OWNER: ${{ github.repository_owner }}
           PR_REPO: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python agent/ci_scan.py > findings.md
 
-      - name: Comment results on the PR
+      - name: Comment results on the pull request
         if: always()
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
             const fs = require('fs');
             let body = 'AI security scan could not complete. Check the Actions log.';
-            try { body = fs.readFileSync('findings.md', 'utf8').slice(0, 12000) || body; } catch (e) {}
+            try {
+              body = fs.readFileSync('findings.md', 'utf8').slice(0, 12000) || body;
+            } catch (e) {}
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
